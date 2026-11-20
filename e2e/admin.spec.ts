@@ -141,6 +141,13 @@ test("the audit page lists entries written through runAction, filters them and s
   await expect(rowsFor(`${run}-ok`)).toHaveCount(0);
   await expect(page.locator("tbody tr td:nth-child(2)").first()).toHaveText("sam@example.test");
 
+  // Clearing the filters empties the fields as well as the results.
+  await page.getByRole("link", { name: "Clear filters" }).click();
+  await expect(page).toHaveURL(/\/admin\/audit$/);
+  await expect(page.getByRole("combobox", { name: "Person" })).toHaveText("Everyone");
+  await expect(page.getByRole("combobox", { name: "Outcome" })).toHaveText("All outcomes");
+  await expect(rowsFor(run)).toHaveCount(3);
+
   // Filter by app and by date range through the address bar.
   const today = new Date().toISOString().slice(0, 10);
   await page.goto(`/admin/audit?app=refunds&from=${today}&to=${today}`);

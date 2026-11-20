@@ -120,6 +120,9 @@ export function AuditLog({
   return (
     <div className="flex flex-col gap-6">
       <form
+        // Remounts the fields when the filters change, so "Clear filters" also
+        // empties them after a client-side navigation.
+        key={JSON.stringify(filters)}
         method="get"
         action="/admin/audit"
         aria-label="Filters"
