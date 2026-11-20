@@ -33,7 +33,7 @@ const runAction = createRunAction({
   recordAudit,
 });
 
-test("with permission: runs the function and writes exactly one allowed entry", async () => {
+test("with permission: runs the function and leaves one allowed row and one completed row", async () => {
   const resource = { type: "refund", id: "r-allowed", status: "requested" };
   const fn = vi.fn(async () => ({
     before: { status: "requested" },
@@ -45,18 +45,74 @@ test("with permission: runs the function and writes exactly one allowed entry", 
 
   expect(result).toBe("done");
   expect(fn).toHaveBeenCalledTimes(1);
-  const entries = await listAudit({ resourceId: "r-allowed" });
-  expect(entries).toHaveLength(1);
-  expect(entries[0]).toMatchObject({
+  const [completed, allowed, ...rest] = await listAudit({ resourceId: "r-allowed" });
+  expect(rest).toEqual([]);
+  const who = {
     actorEmail: "ravi@example.test",
     app: "test-app",
     action: "refund.approve",
     resourceType: "refund",
     resourceId: "r-allowed",
+  };
+  expect(allowed).toMatchObject({
+    ...who,
     outcome: "allowed",
+    before: { status: "requested" },
+    after: null,
+  });
+  expect(completed).toMatchObject({
+    ...who,
+    outcome: "completed",
     before: { status: "requested" },
     after: { status: "approved" },
   });
+});
+
+test("the allowed row is written before the function runs", async () => {
+  const resource = { type: "refund", id: "r-order", status: "requested" };
+  let rowsSeenByFn: string[] = [];
+
+  await runAction(approver, "test-app", "refund.approve", resource, async () => {
+    rowsSeenByFn = (await listAudit({ resourceId: "r-order" })).map((e) => e.outcome);
+    return {};
+  });
+
+  expect(rowsSeenByFn).toEqual(["allowed"]);
+});
+
+test("if the first audit write fails, the function never runs", async () => {
+  const resource = { type: "refund", id: "r-audit-down", status: "requested" };
+  const fn = vi.fn(async () => ({}));
+  const failingRecordAudit = vi.fn(async () => {
+    throw new Error("audit log is down");
+  });
+  const runWithBrokenAudit = createRunAction({
+    getPermissions: () => permissions,
+    recordAudit: failingRecordAudit,
+  });
+
+  await expect(
+    runWithBrokenAudit(approver, "test-app", "refund.approve", resource, fn),
+  ).rejects.toThrow("audit log is down");
+
+  expect(fn).not.toHaveBeenCalled();
+  expect(failingRecordAudit).toHaveBeenCalledTimes(1);
+});
+
+test("if the denied audit write fails, the function still never runs", async () => {
+  const resource = { type: "refund", id: "r-audit-down-denied", status: "requested" };
+  const fn = vi.fn(async () => ({}));
+  const runWithBrokenAudit = createRunAction({
+    getPermissions: () => permissions,
+    recordAudit: async () => {
+      throw new Error("audit log is down");
+    },
+  });
+
+  await expect(
+    runWithBrokenAudit(agent, "test-app", "refund.approve", resource, fn),
+  ).rejects.toThrow("audit log is down");
+  expect(fn).not.toHaveBeenCalled();
 });
 
 test("without permission: writes exactly one denied entry and does not run the function", async () => {
@@ -100,7 +156,7 @@ test.each([
   expect(entries[0].actorEmail).toBe(user?.email ?? "anonymous");
 });
 
-test("a permitted action that throws is still recorded once, and the error passes through", async () => {
+test("a permitted action that throws leaves one allowed row and one failed row, and the error passes through", async () => {
   const resource = { type: "refund", id: "r-throws", status: "requested" };
 
   await expect(
@@ -109,10 +165,15 @@ test("a permitted action that throws is still recorded once, and the error passe
     }),
   ).rejects.toThrow("payments service is down");
 
-  const entries = await listAudit({ resourceId: "r-throws" });
-  expect(entries).toHaveLength(1);
-  expect(entries[0]).toMatchObject({
+  const [failed, allowed, ...rest] = await listAudit({ resourceId: "r-throws" });
+  expect(rest).toEqual([]);
+  expect(allowed).toMatchObject({
     outcome: "allowed",
+    before: { status: "requested" },
+    after: null,
+  });
+  expect(failed).toMatchObject({
+    outcome: "failed",
     after: { error: "payments service is down" },
   });
 });

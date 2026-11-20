@@ -21,6 +21,14 @@ export type RunAction = <T = void>(
   fn: () => Promise<ActionOutput<T>> | ActionOutput<T>,
 ) => Promise<T | undefined>;
 
+/** The resource's fields other than type and id: its state before the action. */
+function stateOf(resource: ActionResource): Record<string, unknown> | undefined {
+  const fields = Object.entries(resource).filter(
+    ([key]) => key !== "type" && key !== "id",
+  );
+  return fields.length > 0 ? Object.fromEntries(fields) : undefined;
+}
+
 type Dependencies = {
   getPermissions: (app: string) => Permissions | undefined;
   recordAudit: (event: AuditInput) => Promise<unknown>;
@@ -42,22 +50,32 @@ export function createRunAction(deps: Dependencies): RunAction {
       throw new ForbiddenError(app, action, decision.reason);
     }
 
+    // Fail closed: if this write throws, the action never runs.
+    await deps.recordAudit({
+      ...entry,
+      outcome: "allowed",
+      before: stateOf(resource),
+    });
+
     let output: ActionOutput<unknown>;
     try {
       output = await fn();
     } catch (error) {
-      // The attempt was permitted, so it is still on the record.
-      await deps.recordAudit({
-        ...entry,
-        outcome: "allowed",
-        after: { error: error instanceof Error ? error.message : String(error) },
-      });
+      try {
+        await deps.recordAudit({
+          ...entry,
+          outcome: "failed",
+          after: { error: error instanceof Error ? error.message : String(error) },
+        });
+      } catch {
+        // The allowed row is already on the record; report the action's own error.
+      }
       throw error;
     }
 
     await deps.recordAudit({
       ...entry,
-      outcome: "allowed",
+      outcome: "completed",
       before: output?.before,
       after: output?.after,
     });

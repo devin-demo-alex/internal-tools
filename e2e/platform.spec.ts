@@ -65,3 +65,40 @@ test("logging out ends the session", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("a signed-out request gets a real redirect status", async ({ request }) => {
+  for (const path of ["/", "/refunds", "/admin", "/ui-preview"]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(307);
+    expect(response.headers()["location"], path).toMatch(/\/login$/);
+    expect(await response.text(), path).not.toContain("Not built yet");
+  }
+});
+
+test("a forged session cookie gets the redirect, not the page", async ({ request }) => {
+  const forged = Buffer.from(
+    JSON.stringify({ email: "ada@example.test", exp: Date.now() + 60_000 }),
+  ).toString("base64url");
+  const response = await request.get("/admin", {
+    maxRedirects: 0,
+    headers: { cookie: `it_session=${forged}.not-a-signature` },
+  });
+  expect(response.status()).toBe(307);
+});
+
+test("an app the user may not open gets a real 403 status", async ({ page }) => {
+  await loginAs(page, "sam@example.test");
+
+  const allowed = await page.request.get("/refunds", { maxRedirects: 0 });
+  expect(allowed.status()).toBe(200);
+
+  for (const path of ["/kyc", "/flags", "/admin"]) {
+    const response = await page.request.get(path, { maxRedirects: 0 });
+    expect(response.status(), path).toBe(403);
+    expect(await response.text(), path).not.toContain("Not built yet");
+
+    const navigation = await page.goto(path);
+    expect(navigation?.status(), path).toBe(403);
+    await expect(page.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
+  }
+});

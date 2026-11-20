@@ -1,18 +1,33 @@
 import { expect, test } from "@playwright/test";
+import { loginAs } from "./helpers";
 
-test("preview page sorts the table and confirms an action", async ({
+test("a visitor who is not signed in is sent to the login page", async ({
   page,
 }) => {
   await page.goto("/ui-preview");
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
 
-  await expect(page.getByText("Sam Agent")).toBeVisible();
+test("preview page shows one page frame, sorts the table and confirms an action", async ({
+  page,
+}) => {
+  await loginAs(page, "sam@example.test");
+  await page.goto("/ui-preview");
+  await expect(page.getByRole("heading", { name: "UI preview" })).toBeVisible();
+
+  // The real AppShell is the sample: there is no second frame inside it.
+  await expect(page.getByRole("banner")).toHaveCount(1);
+  await expect(page.getByRole("main")).toHaveCount(1);
+  await expect(page.getByRole("navigation", { name: "Apps" })).toHaveCount(1);
+  await expect(page.getByRole("banner").getByText("Sam Agent")).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign out" })).toHaveAttribute(
     "href",
     "/logout",
   );
   await expect(
     page.getByRole("navigation", { name: "Apps" }).getByRole("link"),
-  ).toHaveText(["UI preview", "Refunds", "KYC review", "Feature flags"]);
+  ).toHaveText(["Refunds"]);
 
   const table = page.getByRole("table").first();
   const firstColumn = table.locator("tbody tr td:first-child");

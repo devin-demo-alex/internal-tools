@@ -37,7 +37,7 @@ These are defined in `src/platform/contracts.ts`. Do not change them without bei
 
 ## Rules that always apply
 
-1. **Every action goes through `runAction`.** It checks permission, runs the action, and writes the audit entry. An app never performs a state-changing action any other way.
+1. **Every action goes through `runAction`.** It checks permission, runs the action, and writes the audit entry. It writes an `allowed` row before the action runs and a `completed` or `failed` row after it, so if the first write fails the action does not run. An app never performs a state-changing action any other way.
 2. **Deny by default.** If an action is not listed in the app's `permissions.ts`, or the user is in none of its groups, or its condition is false, the answer is no.
 3. **Permission rules live in one place per app:** `src/app/<app>/permissions.ts`. Do not compare groups anywhere else. Pages may call `can(...)` to hide a button, but hiding a button is never the enforcement. The server check is.
 4. **The audit log is append-only.** Never write code or SQL that updates or deletes rows in `audit_events`. Never remove or weaken the database triggers that block this.
