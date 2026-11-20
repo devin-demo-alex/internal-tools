@@ -9,7 +9,7 @@ export default async function Home() {
   const user = await requireUser();
   const apps = appsFor(user);
   return (
-    <main className="p-8">
+    <div>
       <h1 className="text-2xl font-semibold">Internal tools</h1>
       {apps.length === 0 ? (
         <p>You have no apps.</p>
@@ -25,6 +25,6 @@ export default async function Home() {
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }

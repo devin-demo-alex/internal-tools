@@ -8,9 +8,9 @@ export default async function KycPage() {
   await requireUser();
   await requireAppAccess("kyc");
   return (
-    <main className="p-8">
+    <div>
       <h1 className="text-2xl font-semibold">KYC review</h1>
       <p>Not built yet</p>
-    </main>
+    </div>
   );
 }

@@ -8,9 +8,9 @@ export default async function FlagsPage() {
   await requireUser();
   await requireAppAccess("flags");
   return (
-    <main className="p-8">
+    <div>
       <h1 className="text-2xl font-semibold">Feature flags</h1>
       <p>Not built yet</p>
-    </main>
+    </div>
   );
 }

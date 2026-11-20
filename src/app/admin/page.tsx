@@ -8,9 +8,9 @@ export default async function AdminPage() {
   await requireUser();
   await requireAppAccess("admin");
   return (
-    <main className="p-8">
+    <div>
       <h1 className="text-2xl font-semibold">Admin</h1>
       <p>Not built yet</p>
-    </main>
+    </div>
   );
 }
