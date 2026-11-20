@@ -95,3 +95,40 @@ describe("refunds.reject, on a refund Sam requested", () => {
     });
   }
 });
+
+describe("the two conditions on approve and reject", () => {
+  const ravi = TEST_USERS.find((user) => user.email === "ravi@example.test")!;
+  const undecided = { id: "ref_x", status: "requested", requestedBy: "sam@example.test" };
+
+  for (const action of ["refunds.approve", "refunds.reject"]) {
+    test(`${action}: allowed while the refund is requested and someone else asked for it`, () => {
+      expect(can(ravi, permissions, action, undecided)).toBe(true);
+    });
+
+    test(`${action}: refused once the refund is decided`, () => {
+      expect(can(ravi, permissions, action, { ...undecided, status: "approved" })).toBe(false);
+      expect(can(ravi, permissions, action, { ...undecided, status: "rejected" })).toBe(false);
+    });
+
+    test(`${action}: refused on the user's own request`, () => {
+      expect(can(ravi, permissions, action, { ...undecided, requestedBy: "ravi@example.test" })).toBe(false);
+      expect(can(ravi, permissions, action, { ...undecided, requestedBy: "Ravi@Example.test" })).toBe(false);
+    });
+
+    test(`${action}: refused when a field the check reads is missing`, () => {
+      expect(can(ravi, permissions, action)).toBe(false);
+      expect(can(ravi, permissions, action, { id: "ref_x", requestedBy: "sam@example.test" })).toBe(false);
+      expect(can(ravi, permissions, action, { id: "ref_x", status: "requested" })).toBe(false);
+    });
+  }
+});
+
+test("toResource gives the permission check the refund's id, status and requester, and nothing else", async () => {
+  const { toResource } = await import("@/app/refunds/actions");
+  expect(toResource(await getRefund(SAMS_REFUND))).toEqual({
+    type: "refund",
+    id: SAMS_REFUND,
+    status: "requested",
+    requestedBy: "sam@example.test",
+  });
+});

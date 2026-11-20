@@ -19,6 +19,8 @@ Write `src/app/<app>/actions.ts` with one server action per action in the spec.
   - Whatever you pass to `runAction` as the resource, and whatever the action returns as before and after, is stored in the audit log. Pass only the fields the permission check needs, return only the fields that changed, and never include a field that must be masked.
 Build the list page with the shared table component and the columns from the spec.
 Build the detail page, if the spec has one, with the shared layout components.
+If the app has a detail page, write `src/app/<app>/page-exists.ts` the way refunds does, so that a record that does not exist returns a real 404 status.
+  - It takes effect only when it is registered beside the app's permissions in `src/platform/registry.ts`. That file is shared base, so do not edit it: say in the pull request description that this one line is needed.
 Add a button for each action, using the shared confirm dialog.
   - Use `can(...)` to hide a button the user may not use. The server check in `runAction` is still the enforcement.
 Mask any sensitive field on the server before the data reaches the page.

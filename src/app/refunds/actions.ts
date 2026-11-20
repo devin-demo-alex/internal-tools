@@ -18,11 +18,16 @@ export type ActionResult = { error?: string };
 
 const APP = "refunds";
 
-/** Only the fields the permission check needs: this is stored in the audit log. */
-function toResource(refund: Refund): { type: "refund" } & RefundResource {
+/**
+ * The one place a refund is turned into what the permission check reads.
+ * The actions pass it to runAction and the detail page passes it to can().
+ * Only the fields the check needs: runAction stores them in the audit log.
+ */
+export function toResource(refund: Refund): { type: "refund" } & RefundResource {
   return {
     type: "refund",
     id: refund.id,
+    status: refund.status,
     requestedBy: refund.requestedBy,
   };
 }
@@ -45,6 +50,8 @@ export async function requestRefund(
       async () => {
         const refund = await createRefund({ ...input, requestedBy: user.email });
         return {
+          // The refund has an id only now, so the completed row is filed under it.
+          resourceId: refund.id,
           after: {
             id: refund.id,
             paymentId: refund.paymentId,

@@ -62,8 +62,8 @@ test("Pat creates a request, is refused when approving it, and then Ravi approve
   expect(byRavi.map((entry) => entry.outcome).sort()).toEqual(["allowed", "completed"]);
   const allowed = byRavi.find((entry) => entry.outcome === "allowed");
   const completed = byRavi.find((entry) => entry.outcome === "completed");
-  // Only the field the permission check needs, and only the field that changed.
-  expect(allowed?.before).toEqual({ requestedBy: "pat@example.test" });
+  // Only the fields the permission check reads, and only the field that changed.
+  expect(allowed?.before).toEqual({ status: "requested", requestedBy: "pat@example.test" });
   expect(completed?.before).toEqual({ status: "requested" });
   expect(completed?.after).toEqual({ status: "approved" });
 });
@@ -87,8 +87,26 @@ test("a request writes only the new refund's id, payment, amount and status to t
   const { id } = await requestRefund(sam, request);
 
   const [completed] = await listAudit({ actorEmail: "sam@example.test", outcome: "completed", limit: 1 });
-  expect(completed).toMatchObject({ action: "refunds.request", resourceType: "refund", resourceId: "new" });
+  expect(completed).toMatchObject({ action: "refunds.request", resourceType: "refund", resourceId: id });
   expect(completed.after).toEqual({ id, paymentId: "pay_002", amount: 500, status: "requested" });
+});
+
+test("the audit trail of a new refund is found by its real id", async () => {
+  // Refund ids repeat between tests, so count the rows this request adds.
+  const filedUnder = (resourceId: string) =>
+    listAudit({ resourceId, actorEmail: "sam@example.test", action: "refunds.request" });
+  const newBefore = await filedUnder("new");
+
+  const { id } = await requestRefund(sam, request);
+  expect(id).toMatch(/^ref_/);
+  const [completed] = await filedUnder(id!);
+  expect(completed).toMatchObject({ outcome: "completed", after: { id } });
+
+  // The allowed row is written before the refund exists, so it cannot name it.
+  const newAfter = await filedUnder("new");
+  expect(newAfter).toHaveLength(newBefore.length + 1);
+  expect(newAfter[0].outcome).toBe("allowed");
+  expect(newAfter.every((entry) => entry.outcome !== "completed")).toBe(true);
 });
 
 test("Ravi rejects a request with a note", async () => {
@@ -115,7 +133,17 @@ test("Ravi rejects a request with a note", async () => {
   });
 });
 
-test("a refund that is already decided shows the service's error", async () => {
+test("a refund that is already decided is refused by the permission check, and nothing changes", async () => {
   // ref_003 is already approved.
-  expect(await approveRefundRequest(ravi, "ref_003")).toEqual({ error: "Refund ref_003 is already approved" });
+  const decided = await getRefund("ref_003");
+  expect(decided.status).toBe("approved");
+
+  await expect(approveRefundRequest(ravi, "ref_003")).rejects.toBeInstanceOf(ForbiddenError);
+  await expect(rejectRefundRequest(ravi, "ref_003", "Too late")).rejects.toBeInstanceOf(ForbiddenError);
+
+  expect(await getRefund("ref_003")).toEqual(decided);
+  for (const action of ["refunds.approve", "refunds.reject"]) {
+    const entries = await listAudit({ resourceId: "ref_003", action, actorEmail: "ravi@example.test" });
+    expect(entries.map((entry) => entry.outcome), action).toEqual(["denied"]);
+  }
 });

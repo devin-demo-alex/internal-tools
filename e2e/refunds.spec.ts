@@ -66,6 +66,17 @@ test("Sam creates a request, Ravi approves it, and Sam gets a 403 from the appro
   });
   expect(direct.status()).toBe(403);
 
+  // Ravi sends it a second time. The refund is decided now, so the permission check refuses.
+  const again = await ravi.request.post(approve.url(), {
+    headers: {
+      "next-action": approve.headers()["next-action"],
+      "content-type": approve.headers()["content-type"],
+      accept: "text/x-component",
+    },
+    data: approve.postData() ?? "",
+  });
+  expect(again.status()).toBe(403);
+
   await sam.reload();
   await expect(sam.getByText("ravi@example.test")).toBeVisible();
 

@@ -153,3 +153,16 @@ test("the login page never shows the frame: a signed-in visitor is sent home", a
   await page.goto("/login");
   await expect(page).toHaveURL(/:3000\/$/);
 });
+
+test("loginAs switches users on a page where someone is already signed in", async ({ page }) => {
+  await loginAs(page, "sam@example.test");
+  await expect(page.getByRole("banner")).toContainText("Sam Agent");
+
+  await loginAs(page, "ravi@example.test");
+  await expect(page.getByRole("banner")).toContainText("Ravi Approver");
+  await expect(page.getByRole("banner")).not.toContainText("Sam Agent");
+
+  await loginAs(page, "ada@example.test");
+  await expect(page.getByRole("banner")).toContainText("Ada Admin");
+  expect((await page.request.get("/admin", { maxRedirects: 0 })).status()).toBe(200);
+});
