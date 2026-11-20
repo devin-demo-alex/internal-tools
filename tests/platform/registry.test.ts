@@ -29,6 +29,6 @@ test("appsFor returns only the apps a user's groups open", () => {
 });
 
 test("getPermissions knows registered apps only", () => {
-  expect(getPermissions("refunds")).toEqual({});
+  expect(getPermissions("kyc")).toEqual({});
   expect(getPermissions("payroll")).toBeUndefined();
 });

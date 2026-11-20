@@ -31,7 +31,11 @@ for (const user of cases) {
 
     await home.getByRole("link", { name: user.app }).click();
     await expect(page).toHaveURL(new RegExp(`${user.path}$`));
-    await expect(page.getByText("Not built yet")).toBeVisible();
+    if (user.app === "Refunds") {
+      await expect(page.getByRole("heading", { name: "Refunds", exact: true })).toBeVisible();
+    } else {
+      await expect(page.getByText("Not built yet")).toBeVisible();
+    }
 
     for (const path of user.denied) {
       await page.goto(path);
