@@ -15,6 +15,7 @@ Everything runs on made-up data.
 
 ```
 src/platform/auth/       sign-in. The only code that knows how sign-in works.
+src/platform/directory/  the list of people and their groups; listPeople() reads it
 src/platform/policy/     the permission check
 src/platform/audit/      the audit log table and the functions that write and read it
 src/platform/actions/    runAction, the only way an app performs an action
