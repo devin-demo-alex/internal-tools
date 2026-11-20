@@ -166,8 +166,9 @@ export default function UiPreviewPage() {
             <TextField
               label="Customer name"
               name="customer"
-              defaultValue="Maple Books"
+              defaultValue=""
               description="As shown on the account."
+              error="Customer name is required."
             />
             <NumberField
               label="Amount"
@@ -189,7 +190,8 @@ export default function UiPreviewPage() {
             <TextareaField
               label="Notes"
               name="notes"
-              defaultValue="Customer called twice about this refund."
+              defaultValue="Called."
+              error="Notes must be at least 20 characters."
             />
           </form>
         </Section>

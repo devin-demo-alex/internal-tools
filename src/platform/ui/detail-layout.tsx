@@ -25,11 +25,11 @@ export function DetailLayout({
       </div>
       <dl className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-lg border p-4 sm:grid-cols-2">
         {fields.map((field) => (
-          <div key={field.label} className="flex flex-col gap-1">
+          <div key={field.label} className="flex min-w-0 flex-col gap-1">
             <dt className="text-xs font-medium text-muted-foreground">
               {field.label}
             </dt>
-            <dd className="text-sm">{field.value}</dd>
+            <dd className="text-sm break-words">{field.value}</dd>
           </div>
         ))}
       </dl>

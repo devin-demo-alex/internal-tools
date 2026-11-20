@@ -111,7 +111,10 @@ export function ActionButton({
               <TextareaField
                 label={noteLabel}
                 value={note}
-                onChange={(event) => setNote(event.target.value)}
+                onChange={(event) => {
+                  setNote(event.target.value);
+                  setNoteError(undefined);
+                }}
                 error={noteError}
                 disabled={pending}
                 aria-required

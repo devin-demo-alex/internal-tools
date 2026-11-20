@@ -29,10 +29,10 @@ export function AppShell({ user, apps, children }: AppShellProps) {
           </Link>
         </div>
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1 flex-col md:flex-row">
         <nav
           aria-label="Apps"
-          className="w-56 shrink-0 border-r bg-sidebar p-3 text-sidebar-foreground"
+          className="shrink-0 border-b bg-sidebar p-3 text-sidebar-foreground md:w-56 md:border-r md:border-b-0"
         >
           <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">
             Apps
@@ -41,7 +41,7 @@ export function AppShell({ user, apps, children }: AppShellProps) {
             <AppMenu apps={apps} />
           </Suspense>
         </nav>
-        <main className="min-w-0 flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
