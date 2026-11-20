@@ -48,7 +48,14 @@ test("listAudit filters and returns newest first", async () => {
   expect(await listAudit({ app: "kyc" })).toHaveLength(1);
 });
 
-test("an outcome other than allowed or denied is rejected by the database", () => {
+test("every outcome is accepted by the database", async () => {
+  for (const outcome of ["allowed", "denied", "completed", "failed"] as const) {
+    const saved = await recordAudit({ ...base, resourceId: "r-outcomes", outcome });
+    expect(saved.outcome).toBe(outcome);
+  }
+});
+
+test("an outcome outside the known list is rejected by the database", () => {
   const { sqlite } = getAuditDb();
   expect(() =>
     sqlite
@@ -86,4 +93,52 @@ test("DELETE on audit_events fails at the database level", async () => {
   );
 
   expect(await listAudit({ resourceId: "r-delete" })).toHaveLength(1);
+});
+
+const REPLACING_STATEMENTS = {
+  "INSERT OR REPLACE": `INSERT OR REPLACE INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')`,
+  "REPLACE INTO": `REPLACE INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')`,
+  "an upsert with ON CONFLICT DO UPDATE": `INSERT INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')
+    ON CONFLICT (id) DO UPDATE SET actor_email = excluded.actor_email, outcome = excluded.outcome`,
+  "an upsert with ON CONFLICT DO NOTHING": `INSERT INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')
+    ON CONFLICT (id) DO NOTHING`,
+  "INSERT OR IGNORE": `INSERT OR IGNORE INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')`,
+  "a plain INSERT": `INSERT INTO audit_events
+    (id, at, actor_email, app, action, resource_type, resource_id, outcome)
+    VALUES (?, 'later', 'someone-else@example.test', 'refunds', 'x', 'refund', 'r-replace', 'denied')`,
+};
+
+test.each(Object.entries(REPLACING_STATEMENTS))(
+  "%s on an existing row fails at the database level",
+  async (label, sql) => {
+    const resourceId = `r-${label}`;
+    const saved = await recordAudit({ ...base, resourceId });
+    const { sqlite } = getAuditDb();
+    const count = () =>
+      (sqlite.prepare("SELECT count(*) AS n FROM audit_events").get() as { n: number }).n;
+    const rowsBefore = count();
+
+    expect(() => sqlite.prepare(sql).run(saved.id)).toThrow(/append-only/);
+
+    expect(count()).toBe(rowsBefore);
+    expect(await listAudit({ resourceId })).toEqual([saved]);
+    expect(await listAudit({ resourceId: "r-replace" })).toEqual([]);
+  },
+);
+
+test("a new row can still be added after a refused statement", async () => {
+  const first = await recordAudit({ ...base, resourceId: "r-append" });
+  const second = await recordAudit({ ...base, resourceId: "r-append" });
+  expect(second.id).toBeGreaterThan(first.id);
+  expect(await listAudit({ resourceId: "r-append" })).toHaveLength(2);
 });
