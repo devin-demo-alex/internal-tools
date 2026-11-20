@@ -123,6 +123,12 @@ export function buildPaymentsService() {
     if (!found) throw new Refusal(404, `Refund ${id} not found`);
     return found;
   };
+  /** The payment amount minus the refunds already approved on it. */
+  const refundableAmount = (target: Payment) =>
+    target.amountCents -
+    refunds
+      .filter((r) => r.paymentId === target.id && r.status === "approved")
+      .reduce((sum, r) => sum + r.amountCents, 0);
   const requireRequested = (refund: Refund) => {
     if (refund.status !== "requested") {
       throw new Refusal(409, `Refund ${refund.id} is already ${refund.status}`);
@@ -160,10 +166,7 @@ export function buildPaymentsService() {
     }
 
     const target = findPayment(paymentId);
-    const alreadyApproved = refunds
-      .filter((r) => r.paymentId === target.id && r.status === "approved")
-      .reduce((sum, r) => sum + r.amountCents, 0);
-    const refundable = target.amountCents - alreadyApproved;
+    const refundable = refundableAmount(target);
     if (amountCents > refundable) {
       throw new Refusal(
         422,
@@ -193,6 +196,13 @@ export function buildPaymentsService() {
     requireRequested(refund);
     if (samePerson(approvedBy, refund.requestedBy)) {
       throw new Refusal(403, "A refund cannot be approved by the person who requested it");
+    }
+    const refundable = refundableAmount(findPayment(refund.paymentId));
+    if (refund.amountCents > refundable) {
+      throw new Refusal(
+        422,
+        `Refund of ${refund.amountCents} exceeds the refundable amount of ${refundable} on payment ${refund.paymentId}`,
+      );
     }
     refund.status = "approved";
     refund.decidedBy = approvedBy;

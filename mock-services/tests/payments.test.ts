@@ -169,6 +169,35 @@ describe("refunds", () => {
     expect((await getRefund("ref_002")).status).toBe("requested");
   });
 
+  test("POST /refunds/:id/approve refuses when it would take approved refunds past the payment amount", async () => {
+    // pay_003 is 250000 with 50000 approved. ref_002 (100000) and a new 150000 are both valid requests on their own.
+    const second = await createRefund({
+      paymentId: "pay_003",
+      amountCents: 150000,
+      reason: "Rest of the order",
+      requestedBy: "sam@example.test",
+    });
+    await approveRefund("ref_002", { approvedBy: "ravi@example.test" });
+
+    await expectRefusal(
+      approveRefund(second.id, { approvedBy: "ravi@example.test" }),
+      422,
+      `Refund of 150000 exceeds the refundable amount of 100000 on payment pay_003`,
+    );
+    expect(await getRefund(second.id)).toMatchObject({ status: "requested", decidedBy: null, decidedAt: null });
+  });
+
+  test("POST /refunds/:id/approve allows a refund that uses up exactly what is left", async () => {
+    const rest = await createRefund({
+      paymentId: "pay_003",
+      amountCents: 100000,
+      reason: "Rest of the order",
+      requestedBy: "sam@example.test",
+    });
+    await approveRefund("ref_002", { approvedBy: "ravi@example.test" });
+    expect((await approveRefund(rest.id, { approvedBy: "ravi@example.test" })).status).toBe("approved");
+  });
+
   test("POST /refunds/:id/approve refuses an unknown refund and a missing approvedBy", async () => {
     await expectRefusal(approveRefund("ref_999", { approvedBy: "ravi@example.test" }), 404, "Refund ref_999 not found");
     await expectRefusal(approveRefund("ref_001", { approvedBy: "" }), 400, "approvedBy is required");
