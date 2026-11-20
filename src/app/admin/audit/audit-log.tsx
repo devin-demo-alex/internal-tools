@@ -127,7 +127,7 @@ export function AuditLog({
       <form
         // Remounts the fields when the filters change or are cleared, so "Clear
         // filters" also empties them, including choices not yet applied.
-        key={`${JSON.stringify(filters)}-${clears}`}
+        key={`${JSON.stringify([filters, days])}-${clears}`}
         method="get"
         action="/admin/audit"
         aria-label="Filters"
