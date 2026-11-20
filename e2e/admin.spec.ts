@@ -148,6 +148,12 @@ test("the audit page lists entries written through runAction, filters them and s
   await expect(page.getByRole("combobox", { name: "Outcome" })).toHaveText("All outcomes");
   await expect(rowsFor(run)).toHaveCount(3);
 
+  // It also resets a choice that was picked but never applied.
+  await page.getByRole("combobox", { name: "App" }).click();
+  await page.getByRole("option", { name: "Feature flags" }).click();
+  await page.getByRole("link", { name: "Clear filters" }).click();
+  await expect(page.getByRole("combobox", { name: "App" })).toHaveText("All apps");
+
   // Filter by app and by date range through the address bar.
   const today = new Date().toISOString().slice(0, 10);
   await page.goto(`/admin/audit?app=refunds&from=${today}&to=${today}`);
@@ -157,6 +163,13 @@ test("the audit page lists entries written through runAction, filters them and s
   await page.goto("/admin/audit?to=2000-01-01");
   await expect(page.getByText("No audit entries match these filters.")).toBeVisible();
 
+  // A bad date shows a message instead of results, and keeps what was typed.
   await page.goto("/admin/audit?from=yesterday");
   await expect(page.getByText("Use a date like 2026-01-31.")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "From day" })).toHaveValue("yesterday");
+  await expect(page.locator("tbody tr")).toHaveCount(0);
+  await page.goto(`/admin/audit?from=${today}&to=2000-01-01`);
+  await expect(page.getByText("The last day is before the first day.")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "To day" })).toHaveValue("2000-01-01");
+  await expect(page.locator("tbody tr")).toHaveCount(0);
 });

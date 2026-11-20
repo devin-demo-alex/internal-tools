@@ -42,6 +42,11 @@ function isDay(value: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
 }
 
+/** The from and to days exactly as typed, so a bad one can be shown back for correction. */
+export function enteredDays(params: RawParams): { from: string; to: string } {
+  return { from: text(params, "from") ?? "", to: text(params, "to") ?? "" };
+}
+
 /** Reads the filters from the page's query string. A bad date is reported, not applied. */
 export function parseAuditFilters(params: RawParams): {
   filters: AuditPageFilters;

@@ -53,6 +53,8 @@ export type AuditLogProps = {
   entries: AuditEvent[];
   filters: AuditPageFilters;
   errors: AuditFilterErrors;
+  /** The from and to days as typed, valid or not. */
+  days: { from: string; to: string };
   people: SelectOption[];
   apps: SelectOption[];
   outcomes: SelectOption[];
@@ -62,11 +64,14 @@ export function AuditLog({
   entries,
   filters,
   errors,
+  days,
   people,
   apps,
   outcomes,
 }: AuditLogProps) {
   const [selectedId, setSelectedId] = useState<number>();
+  const [clears, setClears] = useState(0);
+  const hasErrors = Boolean(errors.from || errors.to);
   const selected = entries.find((entry) => entry.id === selectedId);
 
   const columns: DataTableColumn<AuditEvent>[] = [
@@ -120,9 +125,9 @@ export function AuditLog({
   return (
     <div className="flex flex-col gap-6">
       <form
-        // Remounts the fields when the filters change, so "Clear filters" also
-        // empties them after a client-side navigation.
-        key={JSON.stringify(filters)}
+        // Remounts the fields when the filters change or are cleared, so "Clear
+        // filters" also empties them, including choices not yet applied.
+        key={`${JSON.stringify(filters)}-${clears}`}
         method="get"
         action="/admin/audit"
         aria-label="Filters"
@@ -149,28 +154,33 @@ export function AuditLog({
         <TextField
           label="From day"
           name="from"
-          defaultValue={filters.from ?? ""}
+          defaultValue={days.from}
           placeholder="YYYY-MM-DD"
           error={errors.from}
         />
         <TextField
           label="To day"
           name="to"
-          defaultValue={filters.to ?? ""}
+          defaultValue={days.to}
           placeholder="YYYY-MM-DD"
           error={errors.to}
         />
         <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-5">
           <Button type="submit">Apply filters</Button>
-          <Link href="/admin/audit" className="text-sm underline underline-offset-4">
+          <Link
+            href="/admin/audit"
+            onClick={() => setClears((count) => count + 1)}
+            className="text-sm underline underline-offset-4"
+          >
             Clear filters
           </Link>
         </div>
       </form>
 
       <p className="text-sm text-muted-foreground" aria-live="polite">
-        {entries.length === 1 ? "1 entry" : `${entries.length} entries`}. Click a
-        row to see the before and after values.
+        {hasErrors
+          ? "No entries are shown until the dates are corrected."
+          : `${entries.length === 1 ? "1 entry" : `${entries.length} entries`}. Click a row to see the before and after values.`}
       </p>
 
       {selected ? (
@@ -214,14 +224,16 @@ export function AuditLog({
         </div>
       ) : null}
 
-      <div onClick={selectClickedRow} className="[&_tbody_tr]:cursor-pointer">
-        <DataTable
-          columns={columns}
-          rows={entries}
-          getRowId={(entry) => String(entry.id)}
-          emptyMessage="No audit entries match these filters."
-        />
-      </div>
+      {hasErrors ? null : (
+        <div onClick={selectClickedRow} className="[&_tbody_tr]:cursor-pointer">
+          <DataTable
+            columns={columns}
+            rows={entries}
+            getRowId={(entry) => String(entry.id)}
+            emptyMessage="No audit entries match these filters."
+          />
+        </div>
+      )}
     </div>
   );
 }

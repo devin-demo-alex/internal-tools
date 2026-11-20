@@ -4,7 +4,13 @@ import { listPeople } from "@/platform/directory";
 import { apps } from "@/platform/registry";
 import { PageHeading } from "../page-heading";
 import { AuditLog } from "./audit-log";
-import { AUDIT_OUTCOMES, findAuditEntries, MAX_ENTRIES, parseAuditFilters } from "./query";
+import {
+  AUDIT_OUTCOMES,
+  enteredDays,
+  findAuditEntries,
+  MAX_ENTRIES,
+  parseAuditFilters,
+} from "./query";
 
 // Who may see this page is decided per request, so navigation waits for the server.
 export const instant = false;
@@ -16,8 +22,11 @@ export default async function AdminAuditPage({
 }) {
   await requireUser();
   await requireAppAccess("admin");
-  const { filters, errors } = parseAuditFilters(await searchParams);
-  const entries = await findAuditEntries(filters);
+  const params = await searchParams;
+  const { filters, errors } = parseAuditFilters(params);
+  // A bad date shows its message instead of results that ignore the date.
+  const hasErrors = Object.keys(errors).length > 0;
+  const entries = hasErrors ? [] : await findAuditEntries(filters);
   return (
     <div className="flex flex-col gap-4">
       <PageHeading
@@ -28,6 +37,7 @@ export default async function AdminAuditPage({
         entries={entries}
         filters={filters}
         errors={errors}
+        days={enteredDays(params)}
         people={[
           ...listPeople().map((person) => ({
             value: person.email,
