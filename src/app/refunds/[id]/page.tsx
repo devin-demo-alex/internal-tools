@@ -67,9 +67,7 @@ export default async function RefundPage({
   // The same fields runAction gets, so the buttons match the server check.
   const resource: RefundResource = {
     id: refund.id,
-    status: refund.status,
     requestedBy: refund.requestedBy,
-    amount: refund.amountCents,
   };
   const undecided = refund.status === "requested";
   const amount = formatMoney(refund.amountCents, payment.currency);

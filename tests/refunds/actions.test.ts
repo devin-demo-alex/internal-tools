@@ -62,8 +62,8 @@ test("Pat creates a request, is refused when approving it, and then Ravi approve
   expect(byRavi.map((entry) => entry.outcome).sort()).toEqual(["allowed", "completed"]);
   const allowed = byRavi.find((entry) => entry.outcome === "allowed");
   const completed = byRavi.find((entry) => entry.outcome === "completed");
-  // Only the fields the permission check needs, and only the field that changed.
-  expect(allowed?.before).toEqual({ status: "requested", requestedBy: "pat@example.test", amount: 500 });
+  // Only the field the permission check needs, and only the field that changed.
+  expect(allowed?.before).toEqual({ requestedBy: "pat@example.test" });
   expect(completed?.before).toEqual({ status: "requested" });
   expect(completed?.after).toEqual({ status: "approved" });
 });

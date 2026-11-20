@@ -120,3 +120,30 @@ test("Ravi rejects a request with a note", async ({ browser, page }) => {
   await expect(page.getByText("Outside the return window")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
 });
+
+test("a refund that does not exist gets a real 404 status, and the other statuses are unchanged", async ({ page, browser }) => {
+  await loginAs(page, "ravi@example.test");
+
+  const missing = await page.request.get("/refunds/ref_999999", { maxRedirects: 0 });
+  expect(missing.status()).toBe(404);
+  const navigation = await page.goto("/refunds/ref_999999");
+  expect(navigation?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "404: Not found" })).toBeVisible();
+
+  // A refund that exists, the list, and an address no page has.
+  expect((await page.request.get("/refunds/ref_001")).status()).toBe(200);
+  expect((await page.request.get("/refunds")).status()).toBe(200);
+  expect((await page.request.get("/refunds/ref_001/nothing-here")).status()).toBe(404);
+
+  // Someone who may not open the app still gets 403, and a signed-out visitor the redirect.
+  expect((await page.request.get("/admin", { maxRedirects: 0 })).status()).toBe(403);
+  const kimContext = await browser.newContext();
+  const kim = await kimContext.newPage();
+  await loginAs(kim, "kim@example.test");
+  expect((await kim.request.get("/refunds/ref_999999", { maxRedirects: 0 })).status()).toBe(403);
+  await kimContext.close();
+  const signedOut = await browser.newContext();
+  const visitor = await signedOut.request.get("http://localhost:3000/refunds/ref_999999", { maxRedirects: 0 });
+  expect(visitor.status()).toBe(307);
+  await signedOut.close();
+});

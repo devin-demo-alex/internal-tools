@@ -23,9 +23,7 @@ function toResource(refund: Refund): { type: "refund" } & RefundResource {
   return {
     type: "refund",
     id: refund.id,
-    status: refund.status,
     requestedBy: refund.requestedBy,
-    amount: refund.amountCents,
   };
 }
 

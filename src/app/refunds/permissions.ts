@@ -4,9 +4,7 @@ import type { Permissions } from "@/platform/policy";
 /** The refund fields the permission check reads. Pass exactly these to runAction and can(). */
 export type RefundResource = {
   id: string;
-  status: string;
   requestedBy: string;
-  amount: number;
 };
 
 /** Nobody decides on a refund they requested themselves. */

@@ -20,13 +20,13 @@ export function AppShell({ user, apps, children }: AppShellProps) {
           <span className="font-medium" title={user.email}>
             {user.name}
           </span>
-          <Link
+          {/* A plain link: signing out loads a new document, so nothing of this frame stays on screen. */}
+          <a
             href="/logout"
-            prefetch={false}
             className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Sign out
-          </Link>
+          </a>
         </div>
       </header>
       <div className="flex flex-1 flex-col md:flex-row">

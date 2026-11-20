@@ -1,6 +1,6 @@
 export { guardRequest as proxy } from "@/platform/actions";
 
-// Every page except the sign-in pages and static files.
+// Every page except sign-out and static files.
 export const config = {
-  matcher: ["/((?!login$|logout$|_next/|favicon\\.ico$).*)"],
+  matcher: ["/((?!logout$|_next/|favicon\\.ico$).*)"],
 };

@@ -106,3 +106,50 @@ test("an app the user may not open gets a real 403 status", async ({ page }) => 
     await expect(page.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
   }
 });
+
+test("after signing out nothing of the previous user is shown, and the next user gets their own frame", async ({ page }) => {
+  await loginAs(page, "sam@example.test");
+  await expect(page.getByRole("banner")).toContainText("Sam Agent");
+  await expect(page.getByRole("navigation", { name: "Apps" })).toBeVisible();
+
+  // Record every frame or user name that appears on the login page, however briefly.
+  await page.addInitScript(() => {
+    const seen = new Set<string>();
+    Object.assign(window, { __seenOnLogin: seen });
+    const look = () => {
+      if (location.pathname !== "/login") return;
+      if (document.querySelector("header")) seen.add("frame header");
+      if (document.querySelector('nav[aria-label="Apps"]')) seen.add("app menu");
+      if (document.querySelector('a[href="/logout"]')) seen.add("sign-out link");
+    };
+    new MutationObserver(look).observe(document, { childList: true, subtree: true });
+    document.addEventListener("DOMContentLoaded", look);
+  });
+
+  await page.getByRole("link", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => [...(window as unknown as { __seenOnLogin: Set<string> }).__seenOnLogin])).toEqual([]);
+  await expect(page.getByRole("banner")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Apps" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Sign out" })).toHaveCount(0);
+  // The only names on the page are the sign-in buttons.
+  await expect(page.getByText("Sam Agent")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "sam@example.test" })).toBeVisible();
+
+  await page.getByRole("button", { name: "ravi@example.test" }).click();
+  await page.waitForURL((url) => url.pathname === "/");
+  await expect(page.getByRole("banner")).toContainText("Ravi Approver");
+  await expect(page.getByRole("banner")).not.toContainText("Sam Agent");
+  await expect(page.getByRole("navigation", { name: "Apps" }).getByRole("link")).toHaveText(["Refunds"]);
+});
+
+test("the login page never shows the frame: a signed-in visitor is sent home", async ({ page }) => {
+  await loginAs(page, "sam@example.test");
+  const response = await page.request.get("/login", { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  expect(new URL(response.headers()["location"], "http://localhost:3000").pathname).toBe("/");
+  await page.goto("/login");
+  await expect(page).toHaveURL(/:3000\/$/);
+});
