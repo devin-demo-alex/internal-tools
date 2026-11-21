@@ -1,31 +1,76 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/platform/auth";
+import type { User } from "@/platform/contracts";
 import { apps, canOpenApp, pageExists } from "@/platform/registry";
+import { BRAND } from "@/platform/ui/brand";
 
 const LOGIN_PATH = "/login";
 
+const escapeHtml = (text: string) =>
+  text.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        char
+      ]!,
+  );
+
 // A page that has started to stream cannot change its status, so a refusal is
-// a complete response of its own, with the same words as src/app/forbidden.tsx.
-function refusal(status: number, title: string, message: string): Response {
+// a complete response of its own, with the same words as src/app/forbidden.tsx
+// and the same letterhead as the page frame.
+function refusal(
+  user: User,
+  status: number,
+  title: string,
+  message: string,
+): Response {
   const html = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>${title}</title>
+    <title>${title} | ${BRAND.company}</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <style>
-      body { margin: 0; padding: 2rem; font-family: system-ui, sans-serif; line-height: 1.5; }
+      body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: system-ui, sans-serif; font-size: 0.875rem; line-height: 1.5; color: #171717; }
+      a { color: inherit; }
+      header { display: flex; height: 3.5rem; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 1rem; border-bottom: 1px solid #e5e5e5; white-space: nowrap; }
+      .brand { display: flex; align-items: center; gap: 0.625rem; font-weight: 600; text-decoration: none; }
+      .brand img { width: 1.75rem; height: 1.75rem; }
+      .product { padding-left: 0.625rem; border-left: 1px solid #e5e5e5; font-weight: 400; color: #737373; }
+      .user { display: flex; align-items: center; gap: 1rem; }
+      .user span { font-weight: 500; }
+      .user a, footer { color: #737373; }
+      .user a { text-decoration: none; }
+      main { flex: 1; padding: 1.5rem; font-size: 1rem; }
       h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
       p { margin: 0; }
+      footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; padding: 0.75rem 1rem; border-top: 1px solid #e5e5e5; font-size: 0.75rem; }
+      @media (max-width: 40rem) { .product, .user span { display: none; } }
     </style>
   </head>
   <body>
+    <header>
+      <a class="brand" href="/">
+        <img src="/icon.svg" alt="" />
+        ${BRAND.company}
+        <span class="product">${BRAND.product}</span>
+      </a>
+      <div class="user">
+        <span title="${escapeHtml(user.email)}">${escapeHtml(user.name)}</span>
+        <a href="/logout">Sign out</a>
+      </div>
+    </header>
     <main>
       <h1>${title}</h1>
       <p>${message}</p>
       <a href="/">Back to home</a>
     </main>
+    <footer>
+      <span>${BRAND.company} · ${BRAND.product}</span>
+      <span>${BRAND.notice}</span>
+    </footer>
   </body>
 </html>
 `;
@@ -57,13 +102,14 @@ export async function guardRequest(request: NextRequest): Promise<Response> {
   );
   if (app && !canOpenApp(user, app)) {
     return refusal(
+      user,
       403,
       "403: Not allowed",
       "You do not have permission to see this page or do this action.",
     );
   }
   if (app && !(await pageExists(app, pathname))) {
-    return refusal(404, "404: Not found", "This page does not exist.");
+    return refusal(user, 404, "404: Not found", "This page does not exist.");
   }
   return NextResponse.next();
 }
