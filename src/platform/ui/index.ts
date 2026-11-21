@@ -1,5 +1,6 @@
 export { AppShell } from "./app-shell";
 export type { AppShellProps } from "./app-shell";
+export { BRAND, BrandFooter, BrandLockup, BrandMark } from "./brand";
 export { ActionButton } from "./action-button";
 export type {
   ActionButtonProps,
