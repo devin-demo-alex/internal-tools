@@ -16,9 +16,21 @@ export type ActionResult = { error?: string };
 
 const APP = "flags";
 
-/** One record per key and environment, so the id names both. */
-export function flagId(key: string, environment: string): string {
-  return `${key}:${environment}`;
+/**
+ * The one place a flag is turned into what the permission check reads.
+ * The action passes it to runAction and the list page passes it to can().
+ * Only the field the check needs: runAction stores it in the audit log.
+ * One record per key and environment, so the id names both.
+ */
+export function toResource(flag: {
+  key: string;
+  environment: FlagEnvironment;
+}): { type: "flag" } & FlagResource {
+  return {
+    type: "flag",
+    id: `${flag.key}:${flag.environment}`,
+    environment: flag.environment,
+  };
 }
 
 function serviceRefusal(error: unknown): ActionResult {
@@ -31,13 +43,7 @@ export async function toggleFeatureFlag(
   input: { key: string; environment: FlagEnvironment; enabled: boolean },
 ): Promise<ActionResult> {
   try {
-    // Only the fields the permission check needs: this is stored in the audit log.
-    const resource: { type: "flag" } & FlagResource = {
-      type: "flag",
-      id: flagId(input.key, input.environment),
-      environment: input.environment,
-    };
-    await runAction(user, APP, "flags.toggle", resource, async () => {
+    await runAction(user, APP, "flags.toggle", toResource(input), async () => {
       const flags = await listFlags();
       const current = flags.find(
         (flag) => flag.key === input.key && flag.environment === input.environment,

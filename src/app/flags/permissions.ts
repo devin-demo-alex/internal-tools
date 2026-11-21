@@ -1,7 +1,7 @@
 import type { User } from "@/platform/contracts";
 import type { Permissions } from "@/platform/policy";
 
-/** The flag fields the permission check reads. Pass exactly these to runAction and can(). */
+/** The flag fields the permission check reads. toResource in actions.ts builds it. */
 export type FlagResource = {
   id: string;
   environment: string;

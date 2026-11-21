@@ -9,10 +9,10 @@ import { requireUser } from "@/platform/auth";
 import { can } from "@/platform/policy";
 import { listFlags, type FlagEnvironment } from "@/platform/services/flags";
 
-import { flagId, toggleFeatureFlag } from "./actions";
+import { toggleFeatureFlag, toResource } from "./actions";
 import { EnvironmentFilter } from "./components/environment-filter";
 import { FlagsTable, type FlagRow, type ToggleInput } from "./components/flags-table";
-import { permissions, type FlagResource } from "./permissions";
+import { permissions } from "./permissions";
 
 // Who may see this page is decided per request, so navigation waits for the server.
 export const instant = false;
@@ -41,22 +41,16 @@ export default async function FlagsPage({
 
   const rows: FlagRow[] = flags
     .filter((flag) => environment === undefined || flag.environment === environment)
-    .map((flag) => {
-      // The same fields runAction gets, so the buttons match the server check.
-      const resource: FlagResource = {
-        id: flagId(flag.key, flag.environment),
-        environment: flag.environment,
-      };
-      return {
-        key: flag.key,
-        description: flag.description,
-        environment: flag.environment,
-        enabled: flag.enabled,
-        updatedBy: flag.updatedBy,
-        updatedAt: flag.updatedAt,
-        canToggle: can(user, permissions, "flags.toggle", resource),
-      };
-    });
+    .map((flag) => ({
+      key: flag.key,
+      description: flag.description,
+      environment: flag.environment,
+      enabled: flag.enabled,
+      updatedBy: flag.updatedBy,
+      updatedAt: flag.updatedAt,
+      // Built the same way as for runAction, so the button matches the server check.
+      canToggle: can(user, permissions, "flags.toggle", toResource(flag)),
+    }));
 
   return (
     <div className="flex flex-col gap-6">
