@@ -20,7 +20,8 @@ Write `src/app/<app>/actions.ts` with one server action per action in the spec.
 Build the list page with the shared table component and the columns from the spec.
 Build the detail page, if the spec has one, with the shared layout components.
 If the app has a detail page, write `src/app/<app>/page-exists.ts` the way refunds does, so that a record that does not exist returns a real 404 status.
-  - It takes effect only when it is registered beside the app's permissions in `src/platform/registry.ts`. That file is shared base, so do not edit it: say in the pull request description that this one line is needed.
+  - Register it in `src/platform/registry.ts` with exactly one registration line beside the app's permissions, `pageExists: <app>PageExists,`, and the import that line needs, the way refunds does.
+  - This is the only edit a new app may make under `src/platform/`. Name it in the pull request description.
 Add a button for each action, using the shared confirm dialog.
   - Use `can(...)` to hide a button the user may not use. The server check in `runAction` is still the enforcement.
 Mask any sensitive field on the server before the data reaches the page.
@@ -34,7 +35,7 @@ Write Playwright tests in `e2e/<app>.spec.ts`: one working path per group, and o
 Run `pnpm verify` and fix failures until it passes.
 Open one pull request titled `Add <app> app`.
 Specifications
-- Only `src/app/<app>/`, `tests/<app>/` and `e2e/<app>.spec.ts` have changed.
+- Only `src/app/<app>/`, `tests/<app>/` and `e2e/<app>.spec.ts` have changed, plus the one `pageExists` registration line in `src/platform/registry.ts` if the app has a detail page.
 - `pnpm verify` passes.
 - Every action in the spec is in `permissions.ts`, and nothing else is.
 - A user without permission gets a 403 from the server for every action, even when calling it directly.
@@ -48,7 +49,7 @@ Advice and Pointers
 - The mock services reset their data through their reset endpoint. Use it at the start of each test, as the refunds tests do.
 - If the service refuses a request, show its error message on the page. Do not hide it.
 Forbidden Actions
-- Do not change anything in `src/platform/`, `mock-services/`, another app's folder, or root configuration files.
+- Do not change anything in `src/platform/`, `mock-services/`, another app's folder, or root configuration files. The one exception is the `pageExists` registration line in `src/platform/registry.ts` described in the procedure.
 - Do not add dependencies.
 - Do not call `fetch` or the database from the app's folder.
 - Do not compare groups anywhere except through `permissions.ts`.
