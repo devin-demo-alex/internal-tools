@@ -11,7 +11,13 @@ export type ActionResource = { type: string; id: string } & Record<
 >;
 
 /** What the action function returns: the audited values and its own result. */
-export type ActionOutput<T> = { before?: unknown; after?: unknown; result?: T };
+export type ActionOutput<T> = {
+  before?: unknown;
+  after?: unknown;
+  result?: T;
+  /** Optional. The id of what the action created, for the completed row. */
+  resourceId?: string;
+};
 
 export type RunAction = <T = void>(
   user: User | null | undefined,
@@ -76,6 +82,8 @@ export function createRunAction(deps: Dependencies): RunAction {
     await deps.recordAudit({
       ...entry,
       outcome: "completed",
+      // Something the action created has no id until now.
+      resourceId: output?.resourceId ?? resource.id,
       before: output?.before,
       after: output?.after,
     });

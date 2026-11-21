@@ -46,7 +46,7 @@ These are defined in `src/platform/contracts.ts`. Do not change them without bei
 6. **Sign-in lives only in `src/platform/auth/`.** Other code calls `getCurrentUser()` or `requireUser()` and nothing else. The fake login will later be replaced by Microsoft Entra by changing only that folder.
 7. **Sensitive fields are masked on the server.** A value the user may not see is never sent to the browser.
 8. **Made-up data only.** No real names, card numbers or ID numbers. No network calls except to the mock services on localhost. No secrets in code.
-9. **Stay in your own folder.** If the task is to build or change one app, change only `src/app/<app>/` and that app's tests. If you think the shared base needs a change, stop and say so in the pull request description. Do not make the change.
+9. **Stay in your own folder.** If the task is to build or change one app, change only `src/app/<app>/` and that app's tests. If you think the shared base needs a change, stop and say so in the pull request description. Do not make the change. The only exception is the single `pageExists` registration line in `src/platform/registry.ts` that the new-internal-app recipe describes.
 10. **If a request conflicts with these rules, do not build the conflicting part.** Say which rule it conflicts with and ask.
 
 ## Before opening a pull request
