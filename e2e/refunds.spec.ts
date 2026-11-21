@@ -158,3 +158,39 @@ test("a refund that does not exist gets a real 404 status, and the other statuse
   expect(visitor.status()).toBe(307);
   await signedOut.close();
 });
+
+test("a second tab that is out of date is told its approve was refused, and the refund is approved once", async ({ browser, page }) => {
+  const reason = uniqueReason("Charged twice");
+  const samContext = await browser.newContext();
+  const sam = await samContext.newPage();
+  await loginAs(sam, "sam@example.test");
+  await fillNewRefund(sam, /pay_011/, "1.00", reason);
+  const href = await sam.getByRole("row").filter({ hasText: reason }).getByRole("link").getAttribute("href");
+  await samContext.close();
+
+  // Ravi has the undecided refund open in two tabs.
+  await loginAs(page, "ravi@example.test");
+  await page.goto(href!);
+  const secondTab = await page.context().newPage();
+  await secondTab.goto(href!);
+  await expect(secondTab.getByRole("button", { name: "Approve" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("approved", { exact: true })).toBeVisible();
+  const decidedAt = await page.getByText("Decided at").locator("xpath=following-sibling::*[1]").innerText();
+
+  // The second tab still shows the button. The server refuses, and the tab says so.
+  await secondTab.getByRole("button", { name: "Approve" }).click();
+  const refused = secondTab.waitForResponse((response) => response.request().method() === "POST");
+  await secondTab.getByRole("button", { name: "Confirm" }).click();
+  expect((await refused).status()).toBe(403);
+  await expect(secondTab.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
+  await expect(secondTab.getByText("do this action")).toBeVisible();
+
+  // The first approval stands, unchanged.
+  await page.reload();
+  await expect(page.getByText("approved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Decided by").locator("xpath=following-sibling::*[1]")).toHaveText("ravi@example.test");
+  await expect(page.getByText("Decided at").locator("xpath=following-sibling::*[1]")).toHaveText(decidedAt);
+});
