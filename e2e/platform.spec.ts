@@ -35,6 +35,8 @@ for (const user of cases) {
       await expect(page.getByRole("heading", { name: "Refunds", exact: true })).toBeVisible();
     } else if (user.app === "Feature flags") {
       await expect(page.getByRole("heading", { name: "Feature flags", exact: true })).toBeVisible();
+    } else if (user.app === "KYC review") {
+      await expect(page.getByRole("heading", { name: "KYC review queue", exact: true })).toBeVisible();
     } else {
       await expect(page.getByText("Not built yet")).toBeVisible();
     }
