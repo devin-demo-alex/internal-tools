@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/platform/auth";
 import { appsFor } from "@/platform/registry";
-import { AppShell } from "@/platform/ui";
+import { AppShell, BRAND } from "@/platform/ui";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Internal tools",
-  description: "Prototype internal-tools platform on made-up data",
+  title: `${BRAND.product} | ${BRAND.company}`,
+  description: `${BRAND.company} ${BRAND.product.toLowerCase()}`,
 };
 
 // Signed-out pages (only /login) render without the shell.
