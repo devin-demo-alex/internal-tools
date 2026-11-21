@@ -11,6 +11,7 @@
     "services": "pnpm --dir mock-services start",
     "test": "vitest run",
     "e2e": "playwright test",
+    "seed:demo": "mock-services/node_modules/.bin/tsx src/platform/audit/seed-demo-cli.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm e2e"
   },
   "dependencies": {

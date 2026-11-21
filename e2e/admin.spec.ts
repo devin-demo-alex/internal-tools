@@ -49,6 +49,47 @@ test("Ada reaches every admin page from the admin menu", async ({ page }) => {
   }
 });
 
+test("Ada sees the four admin pages on the landing page and each link opens", async ({ page }) => {
+  await loginAs(page, ADA);
+  const navigation = await page.goto("/admin");
+  expect(navigation?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Admin centre", exact: true })).toBeVisible();
+  await expect(page.getByText("Not built yet")).toHaveCount(0);
+
+  const pages = page.getByRole("list", { name: "Admin pages" });
+  await expect(pages.getByRole("link")).toHaveText(["Apps", "Roles", "People", "Audit log"]);
+  // Each link has one line saying what the page shows.
+  for (const item of await pages.getByRole("listitem").all()) {
+    await expect(item.getByRole("paragraph")).not.toBeEmpty();
+  }
+
+  for (const [link, path, heading] of [
+    ["Apps", "/admin/apps", "Apps"],
+    ["Roles", "/admin/roles", "Roles"],
+    ["People", "/admin/people", "People"],
+    ["Audit log", "/admin/audit", "Audit log"],
+  ]) {
+    await page.goto("/admin");
+    await pages.getByRole("link", { name: link, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
+  }
+});
+
+test("Sam gets a 403 on the admin landing page", async ({ page }) => {
+  await loginAs(page, "sam@example.test");
+  const response = await page.request.get("/admin", { maxRedirects: 0 });
+  expect(response.status()).toBe(403);
+  const body = await response.text();
+  expect(body).toContain("403: Not allowed");
+  expect(body).not.toContain("Admin centre");
+
+  const navigation = await page.goto("/admin");
+  expect(navigation?.status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Admin pages" })).toHaveCount(0);
+});
+
 test("the apps page lists every app in the registry", async ({ page }) => {
   await loginAs(page, ADA);
   await page.goto("/admin/apps");
