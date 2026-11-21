@@ -66,6 +66,17 @@ test("Sam creates a request, Ravi approves it, and Sam gets a 403 from the appro
   });
   expect(direct.status()).toBe(403);
 
+  // Ravi sends it a second time. The refund is decided now, so the permission check refuses.
+  const again = await ravi.request.post(approve.url(), {
+    headers: {
+      "next-action": approve.headers()["next-action"],
+      "content-type": approve.headers()["content-type"],
+      accept: "text/x-component",
+    },
+    data: approve.postData() ?? "",
+  });
+  expect(again.status()).toBe(403);
+
   await sam.reload();
   await expect(sam.getByText("ravi@example.test")).toBeVisible();
 
@@ -119,4 +130,67 @@ test("Ravi rejects a request with a note", async ({ browser, page }) => {
   await expect(page.getByText("rejected", { exact: true })).toBeVisible();
   await expect(page.getByText("Outside the return window")).toBeVisible();
   await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
+});
+
+test("a refund that does not exist gets a real 404 status, and the other statuses are unchanged", async ({ page, browser }) => {
+  await loginAs(page, "ravi@example.test");
+
+  const missing = await page.request.get("/refunds/ref_999999", { maxRedirects: 0 });
+  expect(missing.status()).toBe(404);
+  const navigation = await page.goto("/refunds/ref_999999");
+  expect(navigation?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "404: Not found" })).toBeVisible();
+
+  // A refund that exists, the list, and an address no page has.
+  expect((await page.request.get("/refunds/ref_001")).status()).toBe(200);
+  expect((await page.request.get("/refunds")).status()).toBe(200);
+  expect((await page.request.get("/refunds/ref_001/nothing-here")).status()).toBe(404);
+
+  // Someone who may not open the app still gets 403, and a signed-out visitor the redirect.
+  expect((await page.request.get("/admin", { maxRedirects: 0 })).status()).toBe(403);
+  const kimContext = await browser.newContext();
+  const kim = await kimContext.newPage();
+  await loginAs(kim, "kim@example.test");
+  expect((await kim.request.get("/refunds/ref_999999", { maxRedirects: 0 })).status()).toBe(403);
+  await kimContext.close();
+  const signedOut = await browser.newContext();
+  const visitor = await signedOut.request.get("http://localhost:3000/refunds/ref_999999", { maxRedirects: 0 });
+  expect(visitor.status()).toBe(307);
+  await signedOut.close();
+});
+
+test("a second tab that is out of date is told its approve was refused, and the refund is approved once", async ({ browser, page }) => {
+  const reason = uniqueReason("Charged twice");
+  const samContext = await browser.newContext();
+  const sam = await samContext.newPage();
+  await loginAs(sam, "sam@example.test");
+  await fillNewRefund(sam, /pay_011/, "1.00", reason);
+  const href = await sam.getByRole("row").filter({ hasText: reason }).getByRole("link").getAttribute("href");
+  await samContext.close();
+
+  // Ravi has the undecided refund open in two tabs.
+  await loginAs(page, "ravi@example.test");
+  await page.goto(href!);
+  const secondTab = await page.context().newPage();
+  await secondTab.goto(href!);
+  await expect(secondTab.getByRole("button", { name: "Approve" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Approve" }).click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("approved", { exact: true })).toBeVisible();
+  const decidedAt = await page.getByText("Decided at").locator("xpath=following-sibling::*[1]").innerText();
+
+  // The second tab still shows the button. The server refuses, and the tab says so.
+  await secondTab.getByRole("button", { name: "Approve" }).click();
+  const refused = secondTab.waitForResponse((response) => response.request().method() === "POST");
+  await secondTab.getByRole("button", { name: "Confirm" }).click();
+  expect((await refused).status()).toBe(403);
+  await expect(secondTab.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
+  await expect(secondTab.getByText("do this action")).toBeVisible();
+
+  // The first approval stands, unchanged.
+  await page.reload();
+  await expect(page.getByText("approved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Decided by").locator("xpath=following-sibling::*[1]")).toHaveText("ravi@example.test");
+  await expect(page.getByText("Decided at").locator("xpath=following-sibling::*[1]")).toHaveText(decidedAt);
 });

@@ -31,6 +31,12 @@ export type ActionButtonProps = {
   disabled?: boolean;
 };
 
+/** True for the error the browser gets when the server answers an action with the 403 page. */
+function isRefused(cause: unknown): boolean {
+  const digest = (cause as { digest?: unknown } | null)?.digest;
+  return digest === "NEXT_HTTP_ERROR_FALLBACK;403";
+}
+
 export function ActionButton({
   label,
   action,
@@ -49,6 +55,10 @@ export function ActionButton({
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState<string>();
   const [error, setError] = useState<string>();
+  const [refusal, setRefusal] = useState<unknown>();
+
+  // A refused action is thrown again here, so the 403 page replaces the page.
+  if (refusal) throw refusal;
 
   function changeOpen(next: boolean) {
     if (pending) return;
@@ -79,6 +89,10 @@ export function ActionButton({
         setOpen(false);
       }
     } catch (cause) {
+      if (isRefused(cause)) {
+        setRefusal(cause);
+        return;
+      }
       setError(
         cause instanceof Error && cause.message
           ? cause.message

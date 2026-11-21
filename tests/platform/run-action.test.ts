@@ -68,6 +68,24 @@ test("with permission: runs the function and leaves one allowed row and one comp
   });
 });
 
+test("an action that creates something files the completed row under the id it returns", async () => {
+  const resource = { type: "refund", id: "new", status: "requested" };
+
+  const result = await runAction(approver, "test-app", "refund.approve", resource, () => ({
+    resourceId: "r-created",
+    after: { status: "requested" },
+    result: "r-created",
+  }));
+
+  expect(result).toBe("r-created");
+  const created = await listAudit({ resourceId: "r-created" });
+  expect(created).toHaveLength(1);
+  expect(created[0]).toMatchObject({ outcome: "completed", resourceType: "refund", after: { status: "requested" } });
+  // The allowed row was written before the id existed.
+  const [allowed] = await listAudit({ resourceId: "new", outcome: "allowed", limit: 1 });
+  expect(allowed).toMatchObject({ action: "refund.approve", resourceId: "new" });
+});
+
 test("the allowed row is written before the function runs", async () => {
   const resource = { type: "refund", id: "r-order", status: "requested" };
   let rowsSeenByFn: string[] = [];
