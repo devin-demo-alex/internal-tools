@@ -21,7 +21,7 @@ export function AppShell({ user, apps, children }: AppShellProps) {
           <span className="flex items-center gap-2" title={user.email}>
             <span
               aria-hidden="true"
-              className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
             >
               {user.name
                 .split(/\s+/)
@@ -30,12 +30,14 @@ export function AppShell({ user, apps, children }: AppShellProps) {
                 .join("")
                 .toUpperCase()}
             </span>
-            <span className="font-medium">{user.name}</span>
+            <span className="hidden font-medium whitespace-nowrap sm:inline">
+              {user.name}
+            </span>
           </span>
           {/* A plain link: signing out loads a new document, so nothing of this frame stays on screen. */}
           <a
             href="/logout"
-            className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="whitespace-nowrap text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Sign out
           </a>

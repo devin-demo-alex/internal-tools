@@ -33,11 +33,13 @@ export function BrandLockup({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center gap-2.5", className)}>
       <BrandMark />
-      <span className="text-sm font-semibold tracking-tight">
+      <span className="text-sm font-semibold tracking-tight whitespace-nowrap">
         {BRAND.company}
       </span>
-      <span aria-hidden="true" className="h-4 w-px bg-border" />
-      <span className="text-sm text-muted-foreground">{BRAND.product}</span>
+      <span aria-hidden="true" className="hidden h-4 w-px bg-border sm:block" />
+      <span className="hidden text-sm whitespace-nowrap text-muted-foreground sm:inline">
+        {BRAND.product}
+      </span>
     </span>
   );
 }
