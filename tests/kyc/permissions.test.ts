@@ -183,6 +183,52 @@ describe("a lead decides open cases only", () => {
   }
 });
 
+describe("every decision, and a claim, applies only while the case is open", () => {
+  const kim = TEST_USERS.find((user) => user.email === KIM)!;
+  const lee = TEST_USERS.find((user) => user.email === LEE)!;
+  const noor = TEST_USERS.find((user) => user.email === NOOR)!;
+
+  // Kim is assigned to the approved case and Lee to the escalated one.
+  for (const action of ["kyc.approve", "kyc.reject", "kyc.escalate"] as const) {
+    test(`Kim is refused ${action} on her own approved case`, async () => {
+      await expectRefused(kim, action, KIMS_APPROVED);
+    });
+    test(`Lee is refused ${action} on her own escalated case`, async () => {
+      await expectRefused(lee, action, LEES_ESCALATED);
+    });
+  }
+
+  const mine = { id: "case_x", assignedTo: KIM, riskScore: 10 };
+  for (const action of ["kyc.approve", "kyc.reject", "kyc.escalate"]) {
+    test(`${action}: allowed for the assigned analyst while open, refused in every other status`, () => {
+      expect(can(kim, permissions, action, { ...mine, status: "open" })).toBe(true);
+      for (const status of ["approved", "rejected", "escalated"]) {
+        expect(can(kim, permissions, action, { ...mine, status }), status).toBe(false);
+      }
+      expect(can(kim, permissions, action, mine)).toBe(false);
+    });
+  }
+  for (const action of ["kyc.approve", "kyc.reject"]) {
+    test(`${action}: allowed for a lead while open, refused in every other status`, () => {
+      expect(can(noor, permissions, action, { ...mine, status: "open" })).toBe(true);
+      for (const status of ["approved", "rejected", "escalated"]) {
+        expect(can(noor, permissions, action, { ...mine, status }), status).toBe(false);
+      }
+    });
+  }
+
+  test("kyc.claim: allowed on an unassigned open case, refused once it is decided or assigned", () => {
+    const free = { id: "case_x", assignedTo: null, riskScore: 10 };
+    for (const user of [kim, noor]) {
+      expect(can(user, permissions, "kyc.claim", { ...free, status: "open" })).toBe(true);
+      for (const status of ["approved", "rejected", "escalated"]) {
+        expect(can(user, permissions, "kyc.claim", { ...free, status }), status).toBe(false);
+      }
+      expect(can(user, permissions, "kyc.claim", { ...mine, status: "open" })).toBe(false);
+    }
+  });
+});
+
 describe("the analyst approval limit is a risk score below 80", () => {
   const kim = TEST_USERS.find((user) => user.email === KIM)!;
   const noor = TEST_USERS.find((user) => user.email === NOOR)!;

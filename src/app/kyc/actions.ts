@@ -42,10 +42,14 @@ export type CaseDetail = CaseSummary & {
 };
 
 /**
- * Only the fields the permission check needs: this is stored in the audit log.
+ * The one place a case is turned into what the permission check reads.
+ * The actions pass it to runAction and the detail page passes it to can().
+ * Only the fields the check needs: runAction stores them in the audit log.
  * The ID number and the date of birth must never be added here.
  */
-function toResource(kycCase: IdentityCase): { type: "kyc-case" } & CaseResource {
+export function toResource(
+  kycCase: Pick<IdentityCase, "id" | "status" | "assignedTo" | "riskScore">,
+): { type: "kyc-case" } & CaseResource {
   return {
     type: "kyc-case",
     id: kycCase.id,

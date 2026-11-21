@@ -17,11 +17,12 @@ import {
   claimKycCase,
   escalateKycCase,
   rejectKycCase,
+  toResource,
   viewCase,
 } from "../actions";
 import { CaseStatusBadge } from "../components/case-status";
 import { formatDate, formatDocumentType } from "../components/format";
-import { permissions, type CaseResource } from "../permissions";
+import { permissions } from "../permissions";
 
 // Who may see this page is decided per request, so navigation waits for the server.
 export const instant = false;
@@ -83,14 +84,8 @@ export default async function KycCasePage({
     return outcome;
   }
 
-  // The same fields runAction gets, so the buttons match the server check.
-  const resource: CaseResource = {
-    id: kycCase.id,
-    status: kycCase.status,
-    assignedTo: kycCase.assignedTo,
-    riskScore: kycCase.riskScore,
-  };
-  const open = kycCase.status === "open";
+  // Built the same way as for runAction, so the buttons match the server check.
+  const resource = toResource(kycCase);
 
   return (
     <DetailLayout
@@ -127,7 +122,7 @@ export default async function KycCasePage({
       ]}
       actions={
         <>
-          {open && can(user, permissions, "kyc.claim", resource) ? (
+          {can(user, permissions, "kyc.claim", resource) ? (
             <ActionButton
               label="Claim"
               confirmTitle="Claim case"
@@ -135,7 +130,7 @@ export default async function KycCasePage({
               action={claimAction}
             />
           ) : null}
-          {open && can(user, permissions, "kyc.approve", resource) ? (
+          {can(user, permissions, "kyc.approve", resource) ? (
             <ActionButton
               label="Approve"
               confirmTitle="Approve case"
@@ -143,7 +138,7 @@ export default async function KycCasePage({
               action={approveAction}
             />
           ) : null}
-          {open && can(user, permissions, "kyc.reject", resource) ? (
+          {can(user, permissions, "kyc.reject", resource) ? (
             <ActionButton
               label="Reject"
               variant="destructive"
@@ -153,7 +148,7 @@ export default async function KycCasePage({
               action={rejectAction}
             />
           ) : null}
-          {open && can(user, permissions, "kyc.escalate", resource) ? (
+          {can(user, permissions, "kyc.escalate", resource) ? (
             <ActionButton
               label="Escalate"
               variant="outline"

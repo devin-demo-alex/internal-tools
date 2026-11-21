@@ -1,5 +1,6 @@
 import { permissions as adminPermissions } from "@/app/admin/permissions";
 import { permissions as flagsPermissions } from "@/app/flags/permissions";
+import { pageExists as kycPageExists } from "@/app/kyc/page-exists";
 import { permissions as kycPermissions } from "@/app/kyc/permissions";
 import { pageExists as refundsPageExists } from "@/app/refunds/page-exists";
 import { permissions as refundsPermissions } from "@/app/refunds/permissions";
@@ -34,6 +35,7 @@ const registrations: Registration[] = [
       openGroups: ["kyc-analysts", "kyc-leads"],
     },
     permissions: kycPermissions,
+    pageExists: kycPageExists,
   },
   {
     entry: {

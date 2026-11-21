@@ -7,7 +7,7 @@ process.env.AUDIT_DB_PATH = ":memory:";
 const { ForbiddenError } = await import("@/platform/actions");
 const { listAudit } = await import("@/platform/audit");
 const { getCase, listCases } = await import("@/platform/services/identity");
-const { approveKycCase, claimKycCase, escalateKycCase, rejectKycCase, viewCase, viewCases } =
+const { approveKycCase, claimKycCase, escalateKycCase, rejectKycCase, toResource, viewCase, viewCases } =
   await import("@/app/kyc/actions");
 
 startIdentityService();
@@ -95,20 +95,31 @@ test("Noor rejects an open case that is assigned to somebody else", async () => 
   });
 });
 
-test("a case that is already decided shows the service's error", async () => {
-  // Kim is assigned to case_010, so the permission check passes and the service refuses.
+test("a case that is already decided is refused by the permission check, and nothing changes", async () => {
+  // case_010 is approved and assigned to Kim.
   const before = await getCase("case_010");
+  expect(before.status).toBe("approved");
 
-  expect(await approveKycCase(kim, "case_010")).toEqual({ error: "Case case_010 is already approved" });
+  await expect(approveKycCase(kim, "case_010")).rejects.toBeInstanceOf(ForbiddenError);
+  await expect(rejectKycCase(kim, "case_010", "Too late")).rejects.toBeInstanceOf(ForbiddenError);
+  await expect(escalateKycCase(kim, "case_010", "Too late")).rejects.toBeInstanceOf(ForbiddenError);
+  await expect(approveKycCase(noor, "case_010")).rejects.toBeInstanceOf(ForbiddenError);
 
   expect(await getCase("case_010")).toEqual(before);
-  const [failed, allowed] = await listAudit({
-    actorEmail: "kim@example.test",
-    action: "kyc.approve",
-    resourceId: "case_010",
+  for (const action of ["kyc.approve", "kyc.reject", "kyc.escalate"]) {
+    const entries = await listAudit({ resourceId: "case_010", action, actorEmail: "kim@example.test" });
+    expect(entries.map((entry) => entry.outcome), action).toEqual(["denied"]);
+  }
+});
+
+test("toResource gives the permission check the case's id, status, assignee and risk score, and nothing else", async () => {
+  expect(toResource(await getCase("case_003"))).toEqual({
+    type: "kyc-case",
+    id: "case_003",
+    status: "open",
+    assignedTo: "kim@example.test",
+    riskScore: 45,
   });
-  expect(allowed.outcome).toBe("allowed");
-  expect(failed).toMatchObject({ outcome: "failed", after: { error: "Case case_010 is already approved" } });
 });
 
 test("a case that does not exist shows the service's error and writes no audit entry", async () => {
@@ -210,7 +221,7 @@ describe("masking", () => {
 test("no audit row contains a full ID number or a date of birth", async () => {
   const raw = await listCases();
 
-  // Every action, completed, refused and failed, by analysts, a lead and an outsider.
+  // Every action, completed and refused, by analysts, a lead and an outsider.
   expect(await claimKycCase(kim, "case_001")).toEqual({});
   expect(await approveKycCase(kim, "case_001")).toEqual({});
   expect(await rejectKycCase(kim, "case_003", "ID number FAKE-N-00003 is not valid")).toEqual({});
@@ -218,7 +229,7 @@ test("no audit row contains a full ID number or a date of birth", async () => {
   expect(await claimKycCase(noor, "case_005")).toEqual({});
   expect(await approveKycCase(noor, "case_004")).toEqual({});
   expect(await rejectKycCase(noor, "case_009", "Same device three times")).toEqual({});
-  expect(await approveKycCase(kim, "case_010")).toEqual({ error: "Case case_010 is already approved" });
+  await expect(approveKycCase(kim, "case_010")).rejects.toBeInstanceOf(ForbiddenError);
   expect(await claimKycCase(lee, "case_002")).toEqual({});
   // Views: full (audited) and masked (not audited).
   for (const user of [kim, lee, noor]) {
@@ -234,7 +245,7 @@ test("no audit row contains a full ID number or a date of birth", async () => {
   }
 
   const rows = await listAudit({ limit: 10_000 });
-  expect(new Set(rows.map((row) => row.outcome))).toEqual(new Set(["allowed", "completed", "denied", "failed"]));
+  expect(new Set(rows.map((row) => row.outcome))).toEqual(new Set(["allowed", "completed", "denied"]));
   expect(new Set(rows.map((row) => row.action))).toEqual(
     new Set(["kyc.claim", "kyc.approve", "kyc.reject", "kyc.escalate", "kyc.viewFullId"]),
   );

@@ -133,7 +133,16 @@ test("Lee gets a 403 from the approve action on Kim's case, and no button for a 
   await leeContext.close();
 });
 
-test("the service's refusal is shown on the page", async ({ page, request }) => {
+test("a case that does not exist gets a real 404 status", async ({ page }) => {
+  await loginAs(page, "kim@example.test");
+  const navigation = await page.goto("/kyc/case_999");
+  expect(navigation?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "404: Not found" })).toBeVisible();
+  expect((await page.request.get("/kyc/case_001")).status()).toBe(200);
+  expect((await page.request.get("/kyc")).status()).toBe(200);
+});
+
+test("a page that is out of date is told its approve was refused, and the decision stands", async ({ page, request }) => {
   await loginAs(page, "kim@example.test");
   // case_003 is assigned to Kim.
   await page.goto("/kyc/case_003");
@@ -143,13 +152,16 @@ test("the service's refusal is shown on the page", async ({ page, request }) => 
   await request.post(`${IDENTITY_SERVICE_URL}/cases/case_003/decision`, {
     data: { decision: "reject", by: "noor@example.test" },
   });
+  // The case is decided now, so the permission check refuses, and the page says so.
+  const refused = page.waitForResponse((response) => response.request().method() === "POST");
   await page.getByRole("button", { name: "Confirm" }).click();
+  expect((await refused).status()).toBe(403);
+  await expect(page.getByRole("heading", { name: "403: Not allowed" })).toBeVisible();
 
-  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
-    "Case case_003 is already rejected",
-  );
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await page.reload();
+  await page.goto("/kyc/case_003");
+  await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Escalate" })).toHaveCount(0);
   await expect(field(page, "Status")).toHaveText("rejected");
   await expect(field(page, "Decided by")).toHaveText("noor@example.test");
 });
