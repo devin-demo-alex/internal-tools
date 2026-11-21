@@ -119,6 +119,10 @@ export function buildDemoAuditRows(now: Date = new Date()): DemoRow[] {
   const decidedCase = (when: When, actor: string, action: string, target: Target, status: string) =>
     done(when, actor, action, target, { before: { status: "open" }, after: { status } });
 
+  /** Opening a case with the full ID number shown. No before or after values, as in the app. */
+  const viewedFullId = (when: When, actor: string, target: Target) =>
+    done(when, actor, "kyc.viewFullId", target);
+
   const flag = (key: string, environment: string): Target => ({
     type: "flag",
     id: `${key}:${environment}`,
@@ -157,6 +161,9 @@ export function buildDemoAuditRows(now: Date = new Date()): DemoRow[] {
     newRefund,
     "Refund of 1000 exceeds the refundable amount of 0 on payment pay_005",
   );
+  // The assigned analyst opens the case, which shows the full ID number. The
+  // row records who saw which case, never the number itself.
+  viewedFullId([5, "14:45"], KIM, kycCase("case_012", 74, KIM));
   decidedCase([5, "15:00"], KIM, "kyc.escalate", kycCase("case_012", 74, KIM), "escalated");
 
   // Four days ago
@@ -178,12 +185,12 @@ export function buildDemoAuditRows(now: Date = new Date()): DemoRow[] {
 
   // Three days ago
   claimed([3, "09:10"], LEE, "case_014", 83);
+  viewedFullId([3, "15:35"], LEE, kycCase("case_014", 83, LEE));
   // An analyst tries to approve a high-risk case, then escalates it instead.
   denied([3, "15:40"], LEE, "kyc.approve", kycCase("case_014", 83, LEE));
   decidedCase([3, "16:00"], LEE, "kyc.escalate", kycCase("case_014", 83, LEE), "escalated");
-  // The lead opens the escalated case, which shows the full ID number. The row
-  // records who saw which case, never the number itself.
-  done([3, "16:30"], NOOR, "kyc.viewFullId", {
+  // The lead opens the escalated case.
+  viewedFullId([3, "16:30"], NOOR, {
     type: "kyc-case",
     id: "case_014",
     state: { status: "escalated", assignedTo: LEE, riskScore: 83 },

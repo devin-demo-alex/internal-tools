@@ -128,6 +128,40 @@ test("every row follows the permission rules of its app", () => {
   expect(rows.filter((row) => row.outcome === "completed" || row.outcome === "failed")).toHaveLength(allowed.length);
 });
 
+test("every row uses an action name and a row shape the apps write", () => {
+  for (const [index, row] of rows.entries()) {
+    expect(Object.keys(getPermissions(row.app) ?? {}), row.action).toContain(row.action);
+    if (row.outcome === "denied") {
+      expect([row.before, row.after]).toEqual([null, null]);
+    }
+    if (row.outcome === "completed" || row.outcome === "failed") {
+      // The row just before it is the allowed row of the same action.
+      const allowed = rows[index - 1];
+      expect(allowed).toMatchObject({
+        outcome: "allowed",
+        actorEmail: row.actorEmail,
+        action: row.action,
+        resourceType: row.resourceType,
+      });
+      expect(allowed.after).toBeNull();
+    }
+  }
+});
+
+test("a few rows record a view of a full ID number, and nothing else about it", () => {
+  const views = rows.filter((row) => row.action === "kyc.viewFullId");
+  const completed = views.filter((row) => row.outcome === "completed");
+  expect(completed.length).toBeGreaterThanOrEqual(3);
+  expect(views.filter((row) => row.outcome === "allowed")).toHaveLength(completed.length);
+  expect(views).toHaveLength(completed.length * 2);
+  for (const row of views) {
+    expect(row.resourceType).toBe("kyc-case");
+    expect(row.after).toBeNull();
+    if (row.outcome === "completed") expect(row.before).toBeNull();
+    else expect(Object.keys(row.before as object).sort()).toEqual(["assignedTo", "riskScore", "status"]);
+  }
+});
+
 test("the denied rows tell the three stories", () => {
   const denied = rows
     .filter((row) => row.outcome === "denied")
