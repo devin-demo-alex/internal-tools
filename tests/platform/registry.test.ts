@@ -35,6 +35,7 @@ test("getPermissions knows registered apps only", () => {
     "kyc.escalate",
     "kyc.reject",
     "kyc.view",
+    "kyc.viewFullId",
   ]);
   expect(getPermissions("payroll")).toBeUndefined();
 });

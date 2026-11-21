@@ -44,24 +44,17 @@ function mayReject(user: User, kycCase: CaseResource): boolean {
   return isLeadOnOpenCase(user, kycCase) || isAnalystAssigned(user, kycCase);
 }
 
+/** The full ID number is for the analyst the case is assigned to and for leads. */
+function mayViewFullId(user: User, kycCase: CaseResource): boolean {
+  return user.groups.includes(LEADS) || isAnalystAssigned(user, kycCase);
+}
+
 export const permissions: Permissions = {
   "kyc.view": { groups: [ANALYSTS, LEADS] },
   "kyc.claim": { groups: [ANALYSTS, LEADS], when: isUnassigned },
   "kyc.approve": { groups: [ANALYSTS, LEADS], when: mayApprove },
   "kyc.reject": { groups: [ANALYSTS, LEADS], when: mayReject },
   "kyc.escalate": { groups: [ANALYSTS], when: isAnalystAssigned },
+  // Decides masking. A view that reveals the full ID number is audited.
+  "kyc.viewFullId": { groups: [ANALYSTS, LEADS], when: mayViewFullId },
 };
-
-/**
- * The masking rule, not an action: the full ID number is for the analyst the
- * case is assigned to and for leads. Everyone else gets the last four characters.
- */
-export function maySeeFullIdNumber(
-  user: User,
-  kycCase: Pick<CaseResource, "assignedTo">,
-): boolean {
-  return (
-    user.groups.includes(LEADS) ||
-    isAnalystAssigned(user, kycCase as CaseResource)
-  );
-}

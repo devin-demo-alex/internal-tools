@@ -1,6 +1,6 @@
 import { ForbiddenError, runAction } from "@/platform/actions";
 import type { User } from "@/platform/contracts";
-import { authorize } from "@/platform/policy";
+import { authorize, can } from "@/platform/policy";
 import {
   claimCase,
   decideCase,
@@ -11,11 +11,7 @@ import {
   type CaseStatus,
   type IdentityCase,
 } from "@/platform/services/identity";
-import {
-  maySeeFullIdNumber,
-  permissions,
-  type CaseResource,
-} from "./permissions";
+import { permissions, type CaseResource } from "./permissions";
 
 // Each action takes the signed-in user from the page, never from the browser.
 // A refusal by the permission check is thrown as ForbiddenError.
@@ -73,6 +69,13 @@ function maskIdNumber(idNumber: string): string {
   return `••••${idNumber.slice(-4)}`;
 }
 
+/** Replaces every occurrence of the case's ID number in a note with its masked form. */
+function redactIdNumber(note: string, idNumber: string): string {
+  if (idNumber === "") return note;
+  const pattern = new RegExp(idNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return note.replace(pattern, maskIdNumber(idNumber));
+}
+
 function toSummary(kycCase: IdentityCase): CaseSummary {
   return {
     id: kycCase.id,
@@ -93,17 +96,26 @@ export async function viewCases(
   return (await listCases(filter)).map(toSummary);
 }
 
-/** kyc.view: one case, with the ID number masked unless this user may see it. */
+/**
+ * kyc.view: one case. Without kyc.viewFullId the ID number is masked, in its
+ * own field and wherever a note quotes it, and nothing is audited.
+ * With kyc.viewFullId the view is recorded through runAction.
+ */
 export async function viewCase(user: User, caseId: string): Promise<CaseDetail> {
   requireView(user);
   const kycCase = await getCase(caseId);
-  const full = maySeeFullIdNumber(user, kycCase);
+  const resource = toResource(kycCase);
+  const full = can(user, permissions, "kyc.viewFullId", resource);
+  // No before or after values: the audit row says who saw which case, nothing more.
+  if (full) await runAction(user, APP, "kyc.viewFullId", resource, () => ({}));
   return {
     ...toSummary(kycCase),
     dateOfBirth: kycCase.dateOfBirth,
     idNumber: full ? kycCase.idNumber : maskIdNumber(kycCase.idNumber),
     idNumberMasked: !full,
-    notes: kycCase.notes,
+    notes: full
+      ? kycCase.notes
+      : kycCase.notes.map((note) => redactIdNumber(note, kycCase.idNumber)),
     decidedBy: kycCase.decidedBy,
     decidedAt: kycCase.decidedAt,
   };

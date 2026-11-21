@@ -91,13 +91,14 @@ function everyUser(
   });
 }
 
-test("the app has exactly these five actions", () => {
+test("the app has exactly these six actions", () => {
   expect(Object.keys(permissions).sort()).toEqual([
     "kyc.approve",
     "kyc.claim",
     "kyc.escalate",
     "kyc.reject",
     "kyc.view",
+    "kyc.viewFullId",
   ]);
 });
 

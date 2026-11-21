@@ -116,7 +116,57 @@ test("a case that does not exist shows the service's error and writes no audit e
   expect(await listAudit({ resourceId: "case_999" })).toEqual([]);
 });
 
+describe("kyc.viewFullId", () => {
+  const views = (user: User, caseId: string) =>
+    listAudit({ actorEmail: user.email, action: "kyc.viewFullId", resourceId: caseId });
+
+  test("Kim opening her own case sees the full ID number and leaves the audit rows", async () => {
+    // case_003 is assigned to Kim.
+    expect(await viewCase(kim, "case_003")).toMatchObject({ idNumber: "FAKE-N-00003", idNumberMasked: false });
+    const rows = await views(kim, "case_003");
+    expect(rows.map((row) => row.outcome).sort()).toEqual(["allowed", "completed"]);
+    for (const row of rows) {
+      expect(row).toMatchObject({ app: "kyc", resourceType: "kyc-case", after: null });
+    }
+    expect(rows.find((row) => row.outcome === "completed")).toMatchObject({ before: null, after: null });
+    expect(JSON.stringify(rows)).not.toContain("FAKE-");
+  });
+
+  test("Lee opening Kim's case sees the masked ID number and leaves no audit row", async () => {
+    const before = (await listAudit({ limit: 10_000 })).length;
+    expect(await viewCase(lee, "case_003")).toMatchObject({ idNumber: "••••0003", idNumberMasked: true });
+    expect(await views(lee, "case_003")).toEqual([]);
+    expect(await listAudit({ limit: 10_000 })).toHaveLength(before);
+  });
+
+  test("a lead opening any case leaves the audit rows; the list leaves none", async () => {
+    const before = (await listAudit({ limit: 10_000 })).length;
+    await viewCases(noor);
+    await viewCases(kim);
+    expect(await listAudit({ limit: 10_000 })).toHaveLength(before);
+    await viewCase(noor, "case_001");
+    expect((await views(noor, "case_001")).map((row) => row.outcome).sort()).toEqual(["allowed", "completed"]);
+  });
+});
+
 describe("masking", () => {
+  test("a note quoting the full ID number is masked for an analyst the case is not assigned to", async () => {
+    // case_003 is assigned to Kim.
+    expect(
+      await rejectKycCase(kim, "case_003", "ID number FAKE-N-00003 is not valid; fake-n-00003 again"),
+    ).toEqual({});
+
+    const forLee = await viewCase(lee, "case_003");
+    expect(forLee.idNumberMasked).toBe(true);
+    expect(JSON.stringify(forLee).toLowerCase()).not.toContain("fake-n-00003");
+    expect(forLee.notes.at(-1)).toBe("ID number ••••0003 is not valid; ••••0003 again");
+
+    // Kim, whose case it is, and a lead still read the note as written.
+    for (const user of [kim, noor]) {
+      expect((await viewCase(user, "case_003")).notes.at(-1)).toContain("FAKE-N-00003");
+    }
+  });
+
   test("the ID number is masked to its last four characters for an analyst the case is not assigned to", async () => {
     // case_003 is assigned to Kim.
     const forLee = await viewCase(lee, "case_003");
@@ -170,6 +220,11 @@ test("no audit row contains a full ID number or a date of birth", async () => {
   expect(await rejectKycCase(noor, "case_009", "Same device three times")).toEqual({});
   expect(await approveKycCase(kim, "case_010")).toEqual({ error: "Case case_010 is already approved" });
   expect(await claimKycCase(lee, "case_002")).toEqual({});
+  // Views: full (audited) and masked (not audited).
+  for (const user of [kim, lee, noor]) {
+    await viewCase(user, "case_003");
+    await viewCase(user, "case_001");
+  }
   await expect(approveKycCase(lee, "case_002")).rejects.toBeInstanceOf(ForbiddenError);
   for (const user of [lee, sam]) {
     await expect(claimKycCase(user, "case_003")).rejects.toBeInstanceOf(ForbiddenError);
@@ -181,7 +236,7 @@ test("no audit row contains a full ID number or a date of birth", async () => {
   const rows = await listAudit({ limit: 10_000 });
   expect(new Set(rows.map((row) => row.outcome))).toEqual(new Set(["allowed", "completed", "denied", "failed"]));
   expect(new Set(rows.map((row) => row.action))).toEqual(
-    new Set(["kyc.claim", "kyc.approve", "kyc.reject", "kyc.escalate"]),
+    new Set(["kyc.claim", "kyc.approve", "kyc.reject", "kyc.escalate", "kyc.viewFullId"]),
   );
 
   const stored = JSON.stringify(rows);
