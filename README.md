@@ -19,16 +19,6 @@ This is a Devin App. Opening it requires signing in to Devin. It runs with the d
 - **Apps** (`src/app/`): `refunds`, `kyc` and `flags`.
 - **Admin centre** (`src/app/admin/`): read-only pages for apps, roles, people and the audit log.
 
-```
-page (src/app/<app>)
-  -> server action (actions.ts)
-    -> runAction ----> permission check (permissions.ts)
-       |          \--> audit log (SQLite): allowed/denied, then completed/failed
-       v
-     service client (src/platform/services)
-       -> fake service (mock-services)
-```
-
 ## How to run it
 
 You need Node.js and pnpm. These commands were run from a fresh clone with Node 24.22.2 and pnpm 12.16.1.
