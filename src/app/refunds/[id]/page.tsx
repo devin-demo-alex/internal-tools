@@ -15,10 +15,10 @@ import {
 } from "@/platform/services/payments";
 import { ActionButton, DetailLayout, type ActionInput } from "@/platform/ui";
 
-import { approveRefundRequest, rejectRefundRequest } from "../actions";
+import { approveRefundRequest, rejectRefundRequest, toResource } from "../actions";
 import { formatDate, formatMoney } from "../components/format";
 import { RefundStatusBadge } from "../components/refund-status";
-import { permissions, type RefundResource } from "../permissions";
+import { permissions } from "../permissions";
 
 // Who may see this page is decided per request, so navigation waits for the server.
 export const instant = false;
@@ -64,14 +64,8 @@ export default async function RefundPage({
     return outcome;
   }
 
-  // The same fields runAction gets, so the buttons match the server check.
-  const resource: RefundResource = {
-    id: refund.id,
-    status: refund.status,
-    requestedBy: refund.requestedBy,
-    amount: refund.amountCents,
-  };
-  const undecided = refund.status === "requested";
+  // Built the same way as for runAction, so the buttons match the server check.
+  const resource = toResource(refund);
   const amount = formatMoney(refund.amountCents, payment.currency);
 
   return (
@@ -99,7 +93,7 @@ export default async function RefundPage({
       ]}
       actions={
         <>
-          {undecided && can(user, permissions, "refunds.approve", resource) ? (
+          {can(user, permissions, "refunds.approve", resource) ? (
             <ActionButton
               label="Approve"
               confirmTitle="Approve refund"
@@ -107,7 +101,7 @@ export default async function RefundPage({
               action={approveAction}
             />
           ) : null}
-          {undecided && can(user, permissions, "refunds.reject", resource) ? (
+          {can(user, permissions, "refunds.reject", resource) ? (
             <ActionButton
               label="Reject"
               variant="destructive"

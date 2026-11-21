@@ -1,11 +1,17 @@
 import { permissions as adminPermissions } from "@/app/admin/permissions";
 import { permissions as flagsPermissions } from "@/app/flags/permissions";
 import { permissions as kycPermissions } from "@/app/kyc/permissions";
+import { pageExists as refundsPageExists } from "@/app/refunds/page-exists";
 import { permissions as refundsPermissions } from "@/app/refunds/permissions";
 import type { AppEntry, User } from "@/platform/contracts";
 import { can, type Permissions } from "@/platform/policy";
 
-type Registration = { entry: AppEntry; permissions: Permissions };
+type Registration = {
+  entry: AppEntry;
+  permissions: Permissions;
+  /** Optional. False when the path names something in the app that does not exist. */
+  pageExists?: (pathname: string) => Promise<boolean>;
+};
 
 const registrations: Registration[] = [
   {
@@ -17,6 +23,7 @@ const registrations: Registration[] = [
       openGroups: ["support-agents", "refund-approvers"],
     },
     permissions: refundsPermissions,
+    pageExists: refundsPageExists,
   },
   {
     entry: {
@@ -60,6 +67,12 @@ export function getApp(id: string): AppEntry | undefined {
 /** An app's permission rules, or undefined for an app that is not registered. */
 export function getPermissions(appId: string): Permissions | undefined {
   return registrations.find(({ entry }) => entry.id === appId)?.permissions;
+}
+
+/** False only when the app says the path names something that does not exist. */
+export async function pageExists(app: AppEntry, pathname: string): Promise<boolean> {
+  const check = registrations.find(({ entry }) => entry.id === app.id)?.pageExists;
+  return check ? check(pathname) : true;
 }
 
 export function canOpenApp(user: User | null | undefined, app: AppEntry): boolean {
